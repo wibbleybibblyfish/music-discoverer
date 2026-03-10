@@ -37,7 +37,24 @@ def load_tracks():
 def load_ratings():
     if RATINGS_FILE.exists():
         with open(RATINGS_FILE) as f:
-            return json.load(f)
+            ratings = json.load(f)
+        # Auto-migrate old star ratings to fire/skip system
+        migrated = False
+        for tid, rdata in ratings.items():
+            if "rating" in rdata and "status" not in rdata:
+                r = rdata["rating"]
+                if rdata.get("skipped"):
+                    rdata["status"] = "skip"
+                elif r >= 4:
+                    rdata["status"] = "fire"
+                elif r <= 2:
+                    rdata["status"] = "skip"
+                else:
+                    rdata["status"] = "neutral"
+                migrated = True
+        if migrated:
+            save_ratings(ratings)
+        return ratings
     return {}
 
 
@@ -50,60 +67,42 @@ def build_preference_profile(tracks, ratings):
     if not ratings:
         return None
 
-    rated_tracks = []
     tracks_by_id = {t["id"]: t for t in tracks}
+    fire_tracks = []
+    skip_tracks = []
     for tid, rdata in ratings.items():
-        if rdata.get("skipped"):
-            continue
+        status = rdata.get("status", "")
         t = tracks_by_id.get(tid)
-        if t:
-            rated_tracks.append({**t, "rating": rdata["rating"]})
+        if not t:
+            continue
+        if status == "fire":
+            fire_tracks.append(t)
+        elif status == "skip":
+            skip_tracks.append(t)
 
-    if not rated_tracks:
+    if not fire_tracks:
         return None
 
     profile = {
-        "subgenre_scores": defaultdict(lambda: {"total": 0, "count": 0}),
-        "energy_scores": defaultdict(lambda: {"total": 0, "count": 0}),
-        "artist_scores": defaultdict(lambda: {"total": 0, "count": 0}),
-        "vocalist_scores": defaultdict(lambda: {"total": 0, "count": 0}),
-        "bpm_weighted_sum": 0,
-        "bpm_weight_total": 0,
-        "energy_weighted_sum": 0,
-        "energy_weight_total": 0,
+        "fire_artists": defaultdict(int),
+        "fire_vocalists": defaultdict(int),
+        "fire_subgenres": defaultdict(int),
+        "fire_genres": defaultdict(int),
+        "skip_artists": defaultdict(int),
     }
 
-    for t in rated_tracks:
-        r = t["rating"]
-        weight = r / 5.0
-
-        sg = t.get("subgenre", "")
-        if sg:
-            s = profile["subgenre_scores"][sg]
-            s["total"] += r
-            s["count"] += 1
-
-        energy = t.get("energy", 0)
-        if energy:
-            e = profile["energy_scores"][energy]
-            e["total"] += r
-            e["count"] += 1
-            profile["energy_weighted_sum"] += energy * weight
-            profile["energy_weight_total"] += weight
-
-        a = profile["artist_scores"][t["artist"]]
-        a["total"] += r
-        a["count"] += 1
-
+    for t in fire_tracks:
+        profile["fire_artists"][t["artist"]] += 1
         for v in t.get("vocalists", []):
-            vg = profile["vocalist_scores"][v]
-            vg["total"] += r
-            vg["count"] += 1
+            profile["fire_vocalists"][v] += 1
+        if t.get("subgenre"):
+            profile["fire_subgenres"][t["subgenre"]] += 1
+        for g in t.get("genres", [t.get("genre", "")]):
+            if g:
+                profile["fire_genres"][g] += 1
 
-        bpm = t.get("bpm", 0)
-        if bpm:
-            profile["bpm_weighted_sum"] += bpm * weight
-            profile["bpm_weight_total"] += weight
+    for t in skip_tracks:
+        profile["skip_artists"][t["artist"]] += 1
 
     return profile
 
@@ -115,65 +114,45 @@ def score_track(track, profile):
     score = 0.0
     reasons = []
 
-    # Subgenre preference (0-2)
-    sg = track.get("subgenre", "")
-    if sg:
-        sg_data = profile["subgenre_scores"].get(sg)
-        if sg_data and sg_data["count"] > 0:
-            sg_avg = sg_data["total"] / sg_data["count"]
-            score += (sg_avg / 5.0) * 2.0
-            if sg_avg >= 4:
-                reasons.append(f"You love {sg}")
-        else:
-            score += 0.8
-            reasons.append(f"Explore {sg}")
-
-    # Energy proximity (0-1.5)
-    energy = track.get("energy", 0)
-    if energy and profile["energy_weight_total"] > 0:
-        preferred = profile["energy_weighted_sum"] / profile["energy_weight_total"]
-        dist = abs(energy - preferred)
-        score += max(0, 1.5 - (dist * 0.3))
-        if dist < 1:
-            reasons.append("Matches your energy")
-
-    # BPM proximity (0-1)
-    bpm = track.get("bpm", 0)
-    if bpm and profile["bpm_weight_total"] > 0:
-        preferred_bpm = profile["bpm_weighted_sum"] / profile["bpm_weight_total"]
-        dist = abs(bpm - preferred_bpm)
-        score += max(0, 1.0 - (dist * 0.05))
-
-    # Artist affinity (0-2)
-    ag = profile["artist_scores"].get(track["artist"])
-    if ag and ag["count"] > 0:
-        avg = ag["total"] / ag["count"]
-        score += (avg / 5.0) * 2.0
-        if avg >= 4:
-            reasons.append(f"You rate {track['artist']} highly")
+    # Artist affinity (0-3)
+    artist = track["artist"]
+    fire_count = profile["fire_artists"].get(artist, 0)
+    skip_count = profile["skip_artists"].get(artist, 0)
+    if fire_count > 0:
+        score += min(3.0, fire_count * 1.5)
+        reasons.append(f"You fire {artist}")
+    elif skip_count > 0:
+        score -= min(2.0, skip_count * 1.0)
     else:
         score += 0.5
         reasons.append("New artist")
 
-    # Vocalist affinity (0-1.5)
-    best_v_score = 0
-    best_v = None
+    # Vocalist affinity (0-2)
     for v in track.get("vocalists", []):
-        vg = profile["vocalist_scores"].get(v)
-        if vg and vg["count"] > 0:
-            v_avg = vg["total"] / vg["count"]
-            v_score = (v_avg / 5.0) * 1.5
-            if v_score > best_v_score:
-                best_v_score = v_score
-                best_v = v
-    if best_v:
-        score += best_v_score
-        if best_v_score > 1.0:
-            reasons.append(f"Features {best_v}")
-    elif track.get("vocalists"):
-        score += 0.3
+        vc = profile["fire_vocalists"].get(v, 0)
+        if vc > 0:
+            score += min(2.0, vc * 1.0)
+            reasons.append(f"Features {v}")
+            break
 
-    # Freshness bonus — prefer recently discovered tracks
+    # Subgenre affinity (0-2)
+    sg = track.get("subgenre", "")
+    if sg:
+        sg_count = profile["fire_subgenres"].get(sg, 0)
+        if sg_count > 0:
+            score += min(2.0, sg_count * 0.5)
+            reasons.append(f"You love {sg}")
+        else:
+            score += 0.5
+            reasons.append(f"Explore {sg}")
+
+    # Genre affinity (0-1)
+    for g in track.get("genres", [track.get("genre", "")]):
+        if g and profile["fire_genres"].get(g, 0) > 0:
+            score += 1.0
+            break
+
+    # Freshness bonus
     source_type = track.get("source_type", "")
     if source_type in ("youtube", "deezer", "reddit"):
         score += 0.5
@@ -192,11 +171,13 @@ def score_track(track, profile):
     return score, reasons[:3]
 
 
-def get_recommendations(tracks, ratings, count=9, filters=None, sort="newest"):
+def get_recommendations(tracks, ratings, count=9, filters=None, sort="newest", exclude_ids=None):
     profile = build_preference_profile(tracks, ratings)
-    rated_ids = set(ratings.keys())
-
-    candidates = [t for t in tracks if t["id"] not in rated_ids]
+    # Exclude fire and skip tracks from recommendations
+    acted_ids = {tid for tid, r in ratings.items() if r.get("status") in ("fire", "skip")}
+    if exclude_ids:
+        acted_ids |= set(exclude_ids)
+    candidates = [t for t in tracks if t["id"] not in acted_ids]
 
     if filters:
         if filters.get("subgenre"):
@@ -263,37 +244,23 @@ def get_recommendations(tracks, ratings, count=9, filters=None, sort="newest"):
 
 
 def build_stats(tracks, ratings):
-    rated = {k: v for k, v in ratings.items() if not v.get("skipped")}
-    skipped = {k: v for k, v in ratings.items() if v.get("skipped")}
+    fire = {k: v for k, v in ratings.items() if v.get("status") == "fire"}
+    skipped = {k: v for k, v in ratings.items() if v.get("status") == "skip"}
+    acted = len(fire) + len(skipped)
 
     source_counts = defaultdict(int)
     for t in tracks:
         source_counts[t.get("source_type", "unknown")] += 1
 
     subgenre_counts = defaultdict(int)
-    subgenre_ratings = defaultdict(list)
-    tracks_by_id = {t["id"]: t for t in tracks}
     for t in tracks:
         sg = t.get("subgenre", "")
         if sg:
             subgenre_counts[sg] += 1
-    for tid, rdata in rated.items():
-        t = tracks_by_id.get(tid)
-        if t and t.get("subgenre"):
-            subgenre_ratings[t["subgenre"]].append(rdata["rating"])
 
     subgenre_stats = {}
     for sg in subgenre_counts:
-        r = subgenre_ratings.get(sg, [])
-        subgenre_stats[sg] = {
-            "total": subgenre_counts[sg],
-            "rated": len(r),
-            "avg_rating": round(sum(r) / len(r), 1) if r else None,
-        }
-
-    avg_rating = None
-    if rated:
-        avg_rating = round(sum(v["rating"] for v in rated.values()) / len(rated), 1)
+        subgenre_stats[sg] = {"total": subgenre_counts[sg]}
 
     genre_counts = defaultdict(int)
     for t in tracks:
@@ -302,10 +269,9 @@ def build_stats(tracks, ratings):
 
     return {
         "total_tracks": len(tracks),
-        "rated": len(rated),
+        "fire": len(fire),
         "skipped": len(skipped),
-        "unrated": len(tracks) - len(ratings),
-        "avg_rating": avg_rating,
+        "unrated": len(tracks) - acted,
         "subgenres": subgenre_stats,
         "sources": dict(source_counts),
         "genres_breakdown": dict(genre_counts),
@@ -451,7 +417,8 @@ class Handler(SimpleHTTPRequestHandler):
             tracks = load_tracks()
             ratings = load_ratings()
             sort = params.get("sort", ["newest"])[0]
-            recs = get_recommendations(tracks, ratings, count, filters or None, sort=sort)
+            exclude_ids = params.get("exclude", [""])[0].split(",") if "exclude" in params else None
+            recs = get_recommendations(tracks, ratings, count, filters or None, sort=sort, exclude_ids=exclude_ids)
             self.send_json(recs)
         elif parsed.path == "/api/stats":
             tracks = load_tracks()
@@ -478,6 +445,19 @@ class Handler(SimpleHTTPRequestHandler):
                 self.send_json({"preview_url": ""})
         elif parsed.path == "/settings":
             self.serve_file("settings.html", "text/html")
+        elif parsed.path == "/fire":
+            self.serve_file("fire.html", "text/html")
+        elif parsed.path == "/api/fire-list":
+            tracks = load_tracks()
+            ratings = load_ratings()
+            tracks_by_id = {t["id"]: t for t in tracks}
+            fire_tracks = []
+            for tid, rdata in ratings.items():
+                if rdata.get("status") == "fire":
+                    t = tracks_by_id.get(tid)
+                    if t:
+                        fire_tracks.append(t)
+            self.send_json(fire_tracks)
         elif parsed.path in ("/favicon.ico", "/logo-128.png", "/logo-256.png"):
             filepath = SCRIPT_DIR / parsed.path.lstrip("/")
             if filepath.exists():
@@ -495,18 +475,26 @@ class Handler(SimpleHTTPRequestHandler):
     def do_POST(self):
         parsed = urlparse(self.path)
 
-        if parsed.path == "/api/rate":
+        if parsed.path == "/api/fire":
             length = int(self.headers.get("Content-Length", 0))
             body = json.loads(self.rfile.read(length))
             ratings = load_ratings()
-            ratings[body["id"]] = {"rating": body["rating"], "skipped": False}
+            ratings[body["id"]] = {"status": "fire"}
             save_ratings(ratings)
+            self.send_json({"ok": True})
+        elif parsed.path == "/api/unfire":
+            length = int(self.headers.get("Content-Length", 0))
+            body = json.loads(self.rfile.read(length))
+            ratings = load_ratings()
+            if body["id"] in ratings:
+                del ratings[body["id"]]
+                save_ratings(ratings)
             self.send_json({"ok": True})
         elif parsed.path == "/api/skip":
             length = int(self.headers.get("Content-Length", 0))
             body = json.loads(self.rfile.read(length))
             ratings = load_ratings()
-            ratings[body["id"]] = {"rating": 0, "skipped": True}
+            ratings[body["id"]] = {"status": "skip"}
             save_ratings(ratings)
             self.send_json({"ok": True})
         elif parsed.path == "/api/reset":

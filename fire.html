@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fire List — Music Discovernator</title>
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<style>
+  :root {
+    --bg: #0a0a12;
+    --surface: #12121f;
+    --surface2: #1a1a2e;
+    --border: #2a2a44;
+    --text: #e0e0f0;
+    --text-dim: #8888aa;
+    --accent: #6c5ce7;
+    --accent-glow: #a29bfe;
+    --green: #00cec9;
+    --red: #ff6b6b;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  header {
+    padding: 16px 24px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  header a {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 20px;
+  }
+
+  header a:hover { color: var(--text); }
+
+  header h1 {
+    font-size: 20px;
+    font-weight: 600;
+    background: linear-gradient(135deg, #ff6b35, #ff4500);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .count {
+    color: var(--text-dim);
+    font-size: 14px;
+    margin-left: auto;
+  }
+
+  .tracks {
+    max-width: 900px;
+    margin: 24px auto;
+    padding: 0 24px;
+  }
+
+  .empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-dim);
+  }
+
+  .empty .icon { font-size: 48px; margin-bottom: 12px; }
+
+  .track-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .track-row:hover { background: var(--surface2); }
+
+  .track-thumb {
+    width: 50px;
+    height: 50px;
+    border-radius: 6px;
+    object-fit: cover;
+    flex-shrink: 0;
+  }
+
+  .track-thumb.placeholder {
+    background: var(--surface2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: var(--text-dim);
+  }
+
+  .track-info { flex: 1; min-width: 0; }
+  .track-info h3 {
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .track-info .artist {
+    font-size: 12px;
+    color: var(--accent-glow);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .track-info .genre-tag {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .remove-btn {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 18px;
+    padding: 4px 8px;
+    transition: color 0.15s;
+  }
+
+  .remove-btn:hover { color: var(--red); }
+
+  .play-btn {
+    background: none;
+    border: none;
+    color: var(--green);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 4px 8px;
+  }
+
+  .play-btn:hover { transform: scale(1.2); }
+
+  .player-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 12px 24px;
+    display: none;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .player-bar.active { display: flex; }
+  .player-bar .info { flex: 1; }
+  .player-bar .info h4 { font-size: 13px; }
+  .player-bar .info .artist { font-size: 12px; color: var(--accent-glow); }
+  .player-bar audio { max-width: 300px; }
+</style>
+</head>
+<body>
+
+<header>
+  <a href="/" title="Back to feed">&larr;</a>
+  <h1>🔥 Fire List</h1>
+  <span class="count" id="count"></span>
+</header>
+
+<div class="tracks" id="tracks"></div>
+
+<div class="player-bar" id="player-bar">
+  <div class="info">
+    <h4 id="pb-title"></h4>
+    <div class="artist" id="pb-artist"></div>
+  </div>
+  <audio id="pb-audio" controls></audio>
+</div>
+
+<script>
+async function api(url, opts) {
+  const resp = await fetch(url, opts);
+  return resp.json();
+}
+
+let tracks = [];
+
+async function load() {
+  tracks = await api('/api/fire-list');
+  const container = document.getElementById('tracks');
+  document.getElementById('count').textContent = `${tracks.length} tracks`;
+
+  if (tracks.length === 0) {
+    container.innerHTML = `
+      <div class="empty">
+        <div class="icon">🔥</div>
+        <p>No fire tracks yet.<br>Hit the fire button on tracks you love!</p>
+      </div>
+    `;
+    return;
+  }
+
+  // Sort by artist
+  tracks.sort((a, b) => a.artist.localeCompare(b.artist));
+
+  container.innerHTML = '';
+  for (const track of tracks) {
+    const row = document.createElement('div');
+    row.className = 'track-row';
+
+    const thumb = track.thumbnail || (track.youtube_id ? `https://img.youtube.com/vi/${track.youtube_id}/mqdefault.jpg` : '');
+    const thumbHtml = thumb
+      ? `<img class="track-thumb" src="${thumb}" alt="" onerror="this.outerHTML='<div class=\\'track-thumb placeholder\\'>&#9835;</div>'">`
+      : `<div class="track-thumb placeholder">&#9835;</div>`;
+
+    const genres = (track.genres || [track.genre || '']).filter(Boolean).join(', ');
+
+    row.innerHTML = `
+      ${thumbHtml}
+      <div class="track-info">
+        <h3>${track.title}</h3>
+        <div class="artist">${track.artist}${track.vocalists?.length ? ` ft. ${track.vocalists.join(', ')}` : ''}</div>
+        ${genres ? `<div class="genre-tag">${genres}</div>` : ''}
+      </div>
+      <button class="play-btn" title="Play preview">&#9654;</button>
+      <button class="remove-btn" title="Remove from fire list">&times;</button>
+    `;
+
+    row.querySelector('.play-btn').onclick = (e) => { e.stopPropagation(); playTrack(track); };
+    row.querySelector('.remove-btn').onclick = (e) => { e.stopPropagation(); removeFire(track.id, row); };
+    row.onclick = () => playTrack(track);
+
+    container.appendChild(row);
+  }
+}
+
+async function playTrack(track) {
+  const bar = document.getElementById('player-bar');
+  document.getElementById('pb-title').textContent = track.title;
+  document.getElementById('pb-artist').textContent = track.artist;
+
+  if (track.deezer_id) {
+    const data = await api(`/api/preview?deezer_id=${track.deezer_id}`);
+    if (data.preview_url) {
+      const audio = document.getElementById('pb-audio');
+      audio.src = data.preview_url;
+      audio.play();
+      bar.classList.add('active');
+      return;
+    }
+  }
+
+  if (track.youtube_id) {
+    window.open(`https://www.youtube.com/watch?v=${track.youtube_id}`, '_blank');
+  }
+}
+
+async function removeFire(trackId, row) {
+  await api('/api/unfire', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: trackId })
+  });
+  row.style.transition = 'opacity 0.3s';
+  row.style.opacity = '0';
+  setTimeout(() => {
+    row.remove();
+    const remaining = document.querySelectorAll('.track-row').length;
+    document.getElementById('count').textContent = `${remaining} tracks`;
+    if (remaining === 0) load();
+  }, 300);
+}
+
+load();
+</script>
+</body>
+</html>

@@ -240,9 +240,11 @@
 
   .track-actions {
     display: flex;
-    gap: 6px;
     align-items: center;
     margin-top: auto;
+  }
+  .track-actions [data-fire] {
+    margin-left: auto;
   }
 
   .btn-play {
@@ -263,30 +265,41 @@
     padding: 5px 10px;
   }
 
-  .btn-skip {
-    background: transparent;
-    border-color: var(--border);
-    color: var(--text-dim);
-    padding: 5px 10px;
-    margin-left: auto;
-  }
-
-  .stars { display: flex; gap: 1px; }
-
-  .star {
-    cursor: pointer;
-    font-size: 20px;
-    color: var(--gold-dim);
-    transition: color 0.1s, transform 0.1s;
+  .btn-ice {
     background: none;
     border: none;
-    padding: 0 1px;
-    line-height: 1;
+    cursor: pointer;
+    font-size: 22px;
+    padding: 2px 6px;
+    filter: grayscale(1) opacity(0.5);
+    transition: filter 0.15s, transform 0.15s;
+  }
+  .btn-ice:hover {
+    filter: none;
+    transform: scale(1.3);
+  }
+  .btn-ice.active {
+    filter: none;
   }
 
-  .star:hover { transform: scale(1.2); }
-  .star.active { color: var(--gold); }
-  .star.hover-preview { color: var(--gold); opacity: 0.7; }
+  .fire-btn {
+    cursor: pointer;
+    font-size: 22px;
+    background: none;
+    border: none;
+    padding: 2px 6px;
+    transition: transform 0.15s, filter 0.15s;
+    filter: grayscale(1) opacity(0.5);
+  }
+
+  .fire-btn:hover { transform: scale(1.3); filter: none; }
+  .fire-btn.active { filter: none; animation: fire-pop 0.3s ease; }
+
+  @keyframes fire-pop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.5); }
+    100% { transform: scale(1); }
+  }
 
   .rated-badge {
     font-size: 11px;
@@ -341,12 +354,17 @@
   .now-playing .rate-section {
     display: flex;
     align-items: center;
-    gap: 10px;
+    justify-content: space-between;
     margin-top: 6px;
   }
 
-  .now-playing .stars { gap: 3px; }
-  .now-playing .star { font-size: 26px; }
+  .now-playing .rate-section .rated-badge {
+    flex: 1;
+    text-align: center;
+  }
+
+  .now-playing .fire-btn { font-size: 30px; }
+  .now-playing .btn-ice { font-size: 30px; }
 
   .player-preview {
     display: none;
@@ -679,13 +697,14 @@
       </select>
       <select id="filter-sort" onchange="loadRecommendations()">
         <option value="newest">Newest first</option>
-        <option value="smart">Smart (rated)</option>
+        <option value="smart">For you</option>
         <option value="random">Random</option>
       </select>
-      <button class="primary" onclick="loadRecommendations()">Recommend</button>
+      <button class="primary" onclick="loadRecommendations(false)">Recommend</button>
       <button class="primary" onclick="window.location='/setup?mode=add'" style="font-size:12px">+ Genre</button>
       <button class="refresh-btn" id="refresh-btn" onclick="refreshSources()">Refresh Sources</button>
       <button onclick="showStats()">Stats</button>
+      <button onclick="window.location='/fire'" title="Fire list" style="font-size:16px">🔥</button>
       <button onclick="window.location='/settings'" title="Settings" style="font-size:16px">&#9881;</button>
     </div>
     <div class="stats-bar" id="stats-bar"></div>
@@ -704,10 +723,10 @@
     <div class="now-playing" id="now-playing">
       <h3 id="np-title"></h3>
       <div class="artist" id="np-artist"></div>
-      <div class="rate-prompt">Rate this track:</div>
       <div class="rate-section">
-        <div class="stars" id="np-stars"></div>
-        <span class="rated-badge" id="np-rated" style="display:none">Saved!</span>
+        <button class="btn-ice" id="np-ice" title="Ice it">🧊</button>
+        <span class="rated-badge" id="np-rated" style="display:none"></span>
+        <button class="fire-btn" id="np-fire" title="Fire!">🔥</button>
       </div>
     </div>
     <div class="player-preview" id="player-preview"></div>
@@ -729,6 +748,7 @@
 <script>
 let currentTrack = null;
 let allRatings = {};
+let seenIds = new Set();
 
 async function api(path, opts) {
   const res = await fetch(path, opts);
@@ -786,26 +806,17 @@ function energyLabel(level) {
   return 'Chill';
 }
 
-function createStars(trackId, container) {
+function createFireBtn(trackId, container) {
   container.innerHTML = '';
   const existing = allRatings[trackId];
-  const currentRating = existing && !existing.skipped ? existing.rating : 0;
+  const isFired = existing && existing.status === 'fire';
 
-  for (let i = 1; i <= 5; i++) {
-    const star = document.createElement('button');
-    star.className = `star${i <= currentRating ? ' active' : ''}`;
-    star.textContent = '\u2605';
-    star.onclick = (e) => { e.stopPropagation(); rateTrack(trackId, i); };
-    star.onmouseenter = () => {
-      container.querySelectorAll('.star').forEach((s, idx) => {
-        s.classList.toggle('hover-preview', idx < i && !s.classList.contains('active'));
-      });
-    };
-    star.onmouseleave = () => {
-      container.querySelectorAll('.star').forEach(s => s.classList.remove('hover-preview'));
-    };
-    container.appendChild(star);
-  }
+  const btn = document.createElement('button');
+  btn.className = `fire-btn${isFired ? ' active' : ''}`;
+  btn.textContent = '🔥';
+  btn.title = isFired ? 'Remove from fire list' : 'Fire!';
+  btn.onclick = (e) => { e.stopPropagation(); toggleFire(trackId); };
+  container.appendChild(btn);
 }
 
 async function replaceCard(trackId) {
@@ -829,6 +840,7 @@ async function replaceCard(trackId) {
   if (subgenre) url += `&subgenre=${subgenre}`;
   if (minEnergy) url += `&min_energy=${minEnergy}`;
   if (sort) url += `&sort=${sort}`;
+  if (seenIds.size > 0) url += `&exclude=${[...seenIds].join(',')}`;
 
   const candidates = await api(url);
   const replacements = candidates.filter(t => !visibleIds.includes(t.id));
@@ -840,6 +852,7 @@ async function replaceCard(trackId) {
 
   setTimeout(() => {
     if (replacements.length > 0) {
+      seenIds.add(replacements[0].id);
       const newCard = renderTrack(replacements[0]);
       newCard.style.opacity = '0';
       newCard.style.transform = 'scale(0.95)';
@@ -855,33 +868,66 @@ async function replaceCard(trackId) {
   }, 250);
 }
 
-async function rateTrack(trackId, rating) {
-  allRatings[trackId] = { rating, skipped: false };
-  await api('/api/rate', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id: trackId, rating })
-  });
+async function toggleFire(trackId) {
+  const existing = allRatings[trackId];
+  const isFired = existing && existing.status === 'fire';
 
+  if (isFired) {
+    delete allRatings[trackId];
+    await api('/api/unfire', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: trackId })
+    });
+  } else {
+    allRatings[trackId] = { status: 'fire' };
+    await api('/api/fire', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: trackId })
+    });
+  }
+
+  // Update fire button on card
+  const card = document.querySelector(`[data-track-id="${CSS.escape(trackId)}"]`);
+  if (card) {
+    const fireContainer = card.querySelector('[data-fire]');
+    if (fireContainer) createFireBtn(trackId, fireContainer);
+  }
+
+  // Update now-playing buttons
   if (currentTrack && currentTrack.id === trackId) {
-    const npStars = document.getElementById('np-stars');
-    npStars.querySelectorAll('.star').forEach((s, idx) => s.classList.toggle('active', idx < rating));
-    const badge = document.getElementById('np-rated');
-    badge.style.display = 'inline';
-    setTimeout(() => badge.style.display = 'none', 2000);
+    document.getElementById('np-fire').classList.toggle('active', !isFired);
+    document.getElementById('np-ice').classList.remove('active');
+    if (!isFired) {
+      const badge = document.getElementById('np-rated');
+      badge.textContent = '🔥 Added to fire list!';
+      badge.style.display = 'inline';
+      setTimeout(() => badge.style.display = 'none', 2000);
+    }
   }
 
   refreshStatsBar();
-  replaceCard(trackId);
+  if (!isFired) replaceCard(trackId);
 }
 
 async function skipTrack(trackId) {
-  allRatings[trackId] = { rating: 0, skipped: true };
+  allRatings[trackId] = { status: 'skip' };
   await api('/api/skip', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id: trackId })
   });
+
+  if (currentTrack && currentTrack.id === trackId) {
+    document.getElementById('np-ice').classList.add('active');
+    document.getElementById('np-fire').classList.remove('active');
+    const badge = document.getElementById('np-rated');
+    badge.textContent = '🧊 Iced!';
+    badge.style.display = 'inline';
+    setTimeout(() => badge.style.display = 'none', 2000);
+  }
+
   refreshStatsBar();
   replaceCard(trackId);
 }
@@ -899,7 +945,13 @@ async function playTrack(track) {
   const vocStr = (track.vocalists || []).length ? ` ft. ${track.vocalists.join(', ')}` : '';
   document.getElementById('np-artist').textContent = track.artist + vocStr;
 
-  createStars(track.id, document.getElementById('np-stars'));
+  const npFire = document.getElementById('np-fire');
+  const npIce = document.getElementById('np-ice');
+  const status = allRatings[track.id]?.status || '';
+  npFire.classList.toggle('active', status === 'fire');
+  npIce.classList.toggle('active', status === 'skip');
+  npFire.onclick = () => toggleFire(track.id);
+  npIce.onclick = () => { skipTrack(track.id); };
   document.getElementById('np-rated').style.display = 'none';
 
   const preview = document.getElementById('player-preview');
@@ -941,8 +993,10 @@ async function playTrack(track) {
   fullLinks.classList.add('active');
 
   // YouTube video embed in the main frame (if we have a video ID)
+  // Only autoplay if there's no Deezer preview already playing
   if (track.youtube_id) {
-    frame.innerHTML = `<iframe src="https://www.youtube.com/embed/${track.youtube_id}?autoplay=1&rel=0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+    const ytAutoplay = previewUrl ? 0 : 1;
+    frame.innerHTML = `<iframe src="https://www.youtube.com/embed/${track.youtube_id}?autoplay=${ytAutoplay}&rel=0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
   } else {
     const thumb = thumbUrl(track);
     frame.innerHTML = `
@@ -964,7 +1018,7 @@ function renderTrack(track) {
   const vocStr = (track.vocalists || []).join(', ');
   const reasons = (track._reasons || []).join(' \u00b7 ');
   const rating = allRatings[track.id];
-  const ratedText = rating && !rating.skipped ? `${rating.rating}/5` : '';
+  const isFired = rating && rating.status === 'fire';
 
   const card = document.createElement('div');
   card.className = 'track-card';
@@ -997,27 +1051,27 @@ function renderTrack(track) {
     </div>
     <div class="track-meta">${metaTags}</div>
     ${reasons ? `<div class="track-reasons">${reasons}</div>` : '<div class="track-reasons"></div>'}
-    <div class="stars" data-stars></div>
     <div class="track-actions">
-      <button class="btn-skip" data-skip>Skip</button>
-      ${ratedText ? `<span class="rated-badge">${ratedText}</span>` : ''}
+      <button class="btn-ice" data-skip title="Ice it">🧊</button>
+      <span data-fire></span>
     </div>
   `;
 
   // Whole card is clickable to select/play
   card.style.cursor = 'pointer';
   card.onclick = (e) => {
-    // Don't trigger if clicking stars or skip
-    if (e.target.closest('.star') || e.target.closest('[data-skip]')) return;
+    if (e.target.closest('.fire-btn') || e.target.closest('.btn-ice')) return;
     playTrack(track);
   };
   card.querySelector('[data-skip]').onclick = (e) => { e.stopPropagation(); skipTrack(track.id); };
 
-  createStars(track.id, card.querySelector('[data-stars]'));
+  createFireBtn(track.id, card.querySelector('[data-fire]'));
   return card;
 }
 
-async function loadRecommendations() {
+async function loadRecommendations(resetSeen = true) {
+  if (resetSeen) seenIds = new Set();
+
   const genre = document.getElementById('filter-genre').value;
   const source = document.getElementById('filter-source').value;
   const subgenre = document.getElementById('filter-subgenre').value;
@@ -1030,14 +1084,15 @@ async function loadRecommendations() {
   if (subgenre) url += `&subgenre=${subgenre}`;
   if (minEnergy) url += `&min_energy=${minEnergy}`;
   if (sort) url += `&sort=${sort}`;
+  if (seenIds.size > 0) url += `&exclude=${[...seenIds].join(',')}`;
 
   const raw = await api(url);
-  // Deduplicate by ID
-  const seen = new Set();
-  const tracks = raw.filter(t => { if (seen.has(t.id)) return false; seen.add(t.id); return true; });
+  const dedup = new Set();
+  const tracks = raw.filter(t => { if (dedup.has(t.id)) return false; dedup.add(t.id); return true; });
   const grid = document.getElementById('tracks-grid');
 
   if (tracks.length === 0) {
+    seenIds = new Set();
     grid.innerHTML = `
       <div class="empty-state">
         <h3>No unrated tracks match these filters</h3>
@@ -1048,7 +1103,10 @@ async function loadRecommendations() {
   }
 
   grid.innerHTML = '';
-  tracks.forEach(t => grid.appendChild(renderTrack(t)));
+  tracks.forEach(t => {
+    seenIds.add(t.id);
+    grid.appendChild(renderTrack(t));
+  });
 }
 
 async function refreshStatsBar() {
@@ -1065,9 +1123,9 @@ async function refreshStatsBar() {
 
   bar.innerHTML = `
     <span><span class="num">${stats.total_tracks}</span> tracks</span>
-    <span><span class="num">${stats.rated}</span> rated</span>
+    <span><span class="num">${stats.fire || 0}</span> 🔥</span>
+    <span><span class="num">${stats.skipped || 0}</span> 🧊</span>
     <span><span class="num">${stats.unrated}</span> to go</span>
-    ${stats.avg_rating ? `<span>avg <span class="num">${stats.avg_rating}</span>\u2605</span>` : ''}
   `;
 
   document.getElementById('setup-area').innerHTML = '';
@@ -1198,13 +1256,12 @@ async function showStats() {
   let sgBars = '';
   for (const [name, data] of Object.entries(subgenres)) {
     const pct = (data.total / maxSg * 100).toFixed(0);
-    const ratingStr = data.avg_rating ? ` ${data.avg_rating}\u2605` : '';
     sgBars += `
       <div class="bar-row">
         <span class="name">${name}</span>
         <div class="bar-bg">
           <div class="bar-fill" style="width:${pct}%"></div>
-          <span class="bar-label">${data.rated}/${data.total}${ratingStr}</span>
+          <span class="bar-label">${data.total}</span>
         </div>
       </div>
     `;
@@ -1213,10 +1270,10 @@ async function showStats() {
   modal.innerHTML = `
     <h2>Your Music Profile</h2>
     <div class="stats-grid">
-      <div class="stat-card"><div class="value">${stats.rated}</div><div class="label">Rated</div></div>
+      <div class="stat-card"><div class="value">${stats.fire || 0}</div><div class="label">🔥 Fire</div></div>
+      <div class="stat-card"><div class="value">${stats.skipped || 0}</div><div class="label">Iced 🧊</div></div>
       <div class="stat-card"><div class="value">${stats.unrated}</div><div class="label">Unrated</div></div>
-      <div class="stat-card"><div class="value">${stats.avg_rating || '-'}</div><div class="label">Avg Rating</div></div>
-      <div class="stat-card"><div class="value">${stats.skipped}</div><div class="label">Skipped</div></div>
+      <div class="stat-card"><div class="value">${stats.total_tracks}</div><div class="label">Total</div></div>
     </div>
     <h3>Configured Sources</h3>
     ${sourcesHtml}
