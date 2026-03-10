@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Music Discoverer — Web server with multi-source discovery and smart recommendations."""
+"""Music Discovernator — Web server with multi-source discovery and smart recommendations."""
 
 import json
 import random
@@ -460,8 +460,32 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json(load_config())
         elif parsed.path == "/api/sources":
             self.send_json(build_sources_info())
+        elif parsed.path == "/api/preview":
+            params = parse_qs(parsed.query)
+            deezer_id = params.get("deezer_id", [None])[0]
+            if not deezer_id:
+                self.send_json({"preview_url": ""})
+                return
+            try:
+                import requests as req
+                resp = req.get(f"https://api.deezer.com/track/{deezer_id}", timeout=10)
+                url = resp.json().get("preview", "") if resp.status_code == 200 else ""
+                self.send_json({"preview_url": url})
+            except Exception:
+                self.send_json({"preview_url": ""})
         elif parsed.path == "/settings":
             self.serve_file("settings.html", "text/html")
+        elif parsed.path in ("/favicon.ico", "/logo-128.png", "/logo-256.png"):
+            filepath = SCRIPT_DIR / parsed.path.lstrip("/")
+            if filepath.exists():
+                ct = "image/x-icon" if parsed.path.endswith(".ico") else "image/png"
+                self.send_response(200)
+                self.send_header("Content-Type", ct)
+                self.end_headers()
+                with open(filepath, "rb") as f:
+                    self.wfile.write(f.read())
+            else:
+                self.send_error(404)
         else:
             self.send_error(404)
 
@@ -655,7 +679,7 @@ def main():
     print(f"  Auto-refresh every {interval_hrs} hours")
 
     server = HTTPServer(("127.0.0.1", PORT), Handler)
-    print(f"\n  Music Discoverer")
+    print(f"\n  Music Discovernator")
     print(f"  http://localhost:{PORT}\n")
     try:
         server.serve_forever()

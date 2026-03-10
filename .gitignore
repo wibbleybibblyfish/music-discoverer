@@ -8,5 +8,8 @@ discovered.json
 ratings.json
 config.json
 
+# Large assets
+logo.png
+
 # macOS
 .DS_Store

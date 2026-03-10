@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Music Discoverer</title>
+<title>Music Discovernator</title>
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
 <style>
   :root {
     --bg: #0a0a12;
@@ -652,7 +653,7 @@
 
 <div class="app">
   <header>
-    <h1>Music Discoverer</h1>
+    <h1>Music Discovernator</h1>
     <div class="header-controls">
       <select id="filter-genre" onchange="loadRecommendations()">
         <option value="">All genres</option>
@@ -713,6 +714,7 @@
     <div class="player-full-links" id="player-full-links"></div>
     <div class="player-frame" id="player-frame">
       <div class="player-placeholder">
+        <img src="/logo-256.png" alt="" style="width:200px;opacity:0.6;margin-bottom:12px"><br>
         Click <strong>Play</strong> on any track<br>
         <span class="hint">Preview plays here, then open the full track</span>
       </div>
@@ -884,7 +886,7 @@ async function skipTrack(trackId) {
   replaceCard(trackId);
 }
 
-function playTrack(track) {
+async function playTrack(track) {
   currentTrack = track;
 
   document.querySelectorAll('.track-card').forEach(c => c.classList.remove('playing'));
@@ -904,12 +906,22 @@ function playTrack(track) {
   const fullLinks = document.getElementById('player-full-links');
   const frame = document.getElementById('player-frame');
 
+  // Fetch fresh preview URL from Deezer (stored ones expire)
+  let previewUrl = null;
+  if (track.deezer_id) {
+    try {
+      const resp = await fetch(`/api/preview?deezer_id=${track.deezer_id}`);
+      const data = await resp.json();
+      previewUrl = data.preview_url || null;
+    } catch(e) {}
+  }
+
   // Audio preview (Deezer 30-second MP3 clip)
-  if (track.preview_url) {
+  if (previewUrl) {
     preview.innerHTML = `
       <div class="audio-preview">
         <div class="preview-label">30-second preview</div>
-        <audio controls autoplay src="${track.preview_url}"></audio>
+        <audio controls autoplay src="${previewUrl}"></audio>
       </div>
     `;
     preview.classList.add('active');

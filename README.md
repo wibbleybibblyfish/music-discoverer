@@ -1,4 +1,8 @@
-# Music Discoverer
+<p align="center">
+  <img src="logo-256.png" alt="Music Discovernator" width="200">
+</p>
+
+# Music Discovernator
 
 A self-hosted music discovery app that learns your taste. Add any genre, and it automatically finds tracks from YouTube channels, Reddit communities, and Deezer playlists. Rate tracks to get smarter recommendations over time.
 
@@ -9,7 +13,7 @@ No API keys required. No accounts. Just music.
 ## Quick Start
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/music-discoverer.git
+git clone https://github.com/wibbleybibblyfish/music-discoverer.git
 cd music-discoverer
 ./start.sh
 ```
