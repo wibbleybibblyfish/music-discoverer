@@ -1,0 +1,12 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# User data
+discovered.json
+ratings.json
+config.json
+
+# macOS
+.DS_Store

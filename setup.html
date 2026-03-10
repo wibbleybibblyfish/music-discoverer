@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Music Discoverer — Setup</title>
+<style>
+  :root {
+    --bg: #0a0a12;
+    --surface: #12121f;
+    --surface2: #1a1a2e;
+    --border: #2a2a44;
+    --text: #e0e0f0;
+    --text-dim: #8888aa;
+    --accent: #6c5ce7;
+    --accent-glow: #a29bfe;
+    --gold: #ffd700;
+    --green: #00cec9;
+    --red: #ff6b6b;
+    --pink: #fd79a8;
+    --deezer: #A238FF;
+    --youtube: #FF0000;
+    --reddit: #FF4500;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 40px 20px;
+  }
+
+  .wizard {
+    max-width: 700px;
+    width: 100%;
+  }
+
+  .wizard-header {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+
+  .wizard-header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent-glow), var(--pink));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 8px;
+  }
+
+  .wizard-header p {
+    color: var(--text-dim);
+    font-size: 15px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 28px;
+    margin-bottom: 20px;
+  }
+
+  .input-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .input-row input {
+    flex: 1;
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .input-row input:focus {
+    border-color: var(--accent);
+  }
+
+  .input-row input::placeholder {
+    color: var(--text-dim);
+  }
+
+  button {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-weight: 500;
+  }
+
+  button:hover:not(:disabled) {
+    border-color: var(--accent);
+  }
+
+  button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    font-weight: 600;
+  }
+
+  button.primary:hover:not(:disabled) {
+    background: var(--accent-glow);
+    border-color: var(--accent-glow);
+  }
+
+  button.add-btn {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .suggestions-label {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+
+  .suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 20px;
+  }
+
+  .chip {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  .chip:hover {
+    border-color: var(--accent);
+    color: var(--accent-glow);
+  }
+
+  .chip.used {
+    opacity: 0.3;
+    cursor: default;
+    pointer-events: none;
+  }
+
+  .added-genres-label {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+
+  .added-genres {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 20px;
+    min-height: 32px;
+  }
+
+  .genre-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--accent);
+    color: #fff;
+    padding: 6px 10px 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    animation: tagIn 0.2s ease;
+  }
+
+  @keyframes tagIn {
+    from { opacity: 0; transform: scale(0.85); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  .genre-tag .remove {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: #fff;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    line-height: 1;
+    transition: background 0.15s;
+  }
+
+  .genre-tag .remove:hover {
+    background: rgba(255,255,255,0.4);
+  }
+
+  .wizard-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+
+  /* Step 2: Source Selection */
+  .step { display: none; }
+  .step.active { display: block; }
+
+  .genre-sources-section {
+    margin-bottom: 24px;
+  }
+
+  .genre-sources-section:last-of-type {
+    margin-bottom: 0;
+  }
+
+  .genre-section-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    background: linear-gradient(135deg, var(--accent-glow), var(--pink));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-transform: capitalize;
+  }
+
+  .source-group {
+    margin-bottom: 16px;
+  }
+
+  .source-group-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .source-group-title.youtube { color: var(--youtube); }
+  .source-group-title.reddit { color: var(--reddit); }
+  .source-group-title.deezer { color: var(--deezer); }
+  .source-group-title.search { color: var(--accent-glow); }
+
+  .source-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    background: var(--surface2);
+    border-radius: 8px;
+    margin-bottom: 4px;
+    font-size: 13px;
+    transition: opacity 0.2s;
+  }
+
+  .source-item.unchecked {
+    opacity: 0.4;
+  }
+
+  .source-item input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .source-item .source-name {
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .source-item .source-detail {
+    color: var(--text-dim);
+    font-size: 12px;
+    margin-left: auto;
+    white-space: nowrap;
+  }
+
+  .discovering-notice {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-dim);
+    font-size: 13px;
+  }
+
+  .discovering-notice .spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent-glow);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-bottom: 8px;
+  }
+
+  /* Step 3: Loading/Complete */
+  .loading-state {
+    text-align: center;
+    padding: 60px 20px;
+  }
+
+  .loading-state .big-spinner {
+    width: 48px;
+    height: 48px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent-glow);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 20px;
+  }
+
+  .loading-state h2 {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .loading-state p {
+    color: var(--text-dim);
+    font-size: 14px;
+  }
+
+  .loading-state .progress-items {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .progress-item {
+    font-size: 13px;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .progress-item.done {
+    color: var(--green);
+  }
+
+  .progress-item.active {
+    color: var(--accent-glow);
+  }
+
+  .progress-item .check {
+    font-size: 14px;
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  .back-btn {
+    background: transparent;
+    border-color: var(--border);
+    color: var(--text-dim);
+  }
+
+  .error-msg {
+    color: var(--red);
+    font-size: 12px;
+    margin-top: 4px;
+    min-height: 18px;
+  }
+
+  .no-sources-msg {
+    color: var(--text-dim);
+    font-size: 13px;
+    font-style: italic;
+    padding: 10px;
+  }
+
+  @media (max-width: 500px) {
+    body { padding: 20px 12px; }
+    .card { padding: 18px; }
+    .wizard-header h1 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wizard">
+  <div class="wizard-header">
+    <h1 id="wizard-title">What music do you want to discover?</h1>
+    <p id="wizard-subtitle">Add one or more genres to get started</p>
+  </div>
+
+  <!-- Step 1: Genre Input -->
+  <div class="step active" id="step-1">
+    <div class="card">
+      <div class="input-row">
+        <input type="text" id="genre-input" placeholder="e.g. vocal trance, deep house, techno..." autocomplete="off">
+        <button class="add-btn" id="add-btn" onclick="addGenre()">Add</button>
+      </div>
+      <div class="error-msg" id="genre-error"></div>
+
+      <div class="suggestions-label">Popular genres</div>
+      <div class="suggestions" id="suggestions"></div>
+
+      <div class="added-genres-label" id="added-label" style="display:none">Your genres</div>
+      <div class="added-genres" id="added-genres"></div>
+    </div>
+
+    <div class="wizard-actions">
+      <button class="primary" id="next-btn" disabled onclick="goToStep2()">Next</button>
+    </div>
+  </div>
+
+  <!-- Step 2: Source Selection -->
+  <div class="step" id="step-2">
+    <div class="card" id="sources-card">
+      <div id="sources-container"></div>
+    </div>
+
+    <div class="wizard-actions">
+      <button class="back-btn" onclick="goToStep1()">Back</button>
+      <button class="primary" id="start-btn" onclick="startDiscovering()">Start Discovering</button>
+    </div>
+  </div>
+
+  <!-- Step 3: Loading/Complete -->
+  <div class="step" id="step-3">
+    <div class="card">
+      <div class="loading-state">
+        <div class="big-spinner"></div>
+        <h2>Discovering music...</h2>
+        <p>Setting up your sources and fetching tracks</p>
+        <div class="progress-items" id="progress-items"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUGGESTIONS = [
+  'vocal trance', 'deep house', 'techno', 'progressive house',
+  'drum and bass', 'synthwave', 'ambient', 'lo-fi',
+  'house', 'edm', 'psytrance', 'chillout',
+  'melodic techno', 'dubstep', 'hardstyle', 'garage'
+];
+
+const params = new URLSearchParams(window.location.search);
+const isAddMode = params.get('mode') === 'add';
+
+const addedGenres = [];
+const genreSources = {};
+
+if (isAddMode) {
+  document.getElementById('wizard-title').textContent = 'Add a new genre';
+  document.getElementById('wizard-subtitle').textContent = 'Search for a genre and choose your sources';
+}
+
+function renderSuggestions() {
+  const container = document.getElementById('suggestions');
+  container.innerHTML = '';
+  for (const s of SUGGESTIONS) {
+    const chip = document.createElement('button');
+    chip.className = 'chip';
+    chip.textContent = s;
+    if (addedGenres.some(g => g.toLowerCase() === s.toLowerCase()))
+      chip.classList.add('used');
+    chip.onclick = () => {
+      if (!chip.classList.contains('used'))
+        addGenreByName(s);
+    };
+    container.appendChild(chip);
+  }
+}
+
+function addGenre() {
+  const input = document.getElementById('genre-input');
+  const name = input.value.trim();
+  if (!name)
+    return;
+  addGenreByName(name);
+  input.value = '';
+  input.focus();
+}
+
+async function addGenreByName(name) {
+  const errorEl = document.getElementById('genre-error');
+  errorEl.textContent = '';
+
+  const normalized = name.toLowerCase().trim();
+  if (addedGenres.some(g => g.toLowerCase() === normalized)) {
+    errorEl.textContent = `"${name}" is already added`;
+    return;
+  }
+
+  // Check if it already exists in config
+  try {
+    const config = await fetch('/api/config').then(r => r.json());
+    const existing = (config.genres || []).map(g => g.name.toLowerCase());
+    if (existing.includes(normalized)) {
+      errorEl.textContent = `"${name}" already exists in your library`;
+      return;
+    }
+  } catch (e) {
+    // Continue anyway
+  }
+
+  addedGenres.push(name);
+  renderAddedGenres();
+  renderSuggestions();
+  updateNextButton();
+}
+
+function removeGenre(name) {
+  const idx = addedGenres.indexOf(name);
+  if (idx !== -1)
+    addedGenres.splice(idx, 1);
+  delete genreSources[name];
+  renderAddedGenres();
+  renderSuggestions();
+  updateNextButton();
+}
+
+function renderAddedGenres() {
+  const container = document.getElementById('added-genres');
+  const label = document.getElementById('added-label');
+  container.innerHTML = '';
+
+  if (addedGenres.length === 0) {
+    label.style.display = 'none';
+    return;
+  }
+
+  label.style.display = 'block';
+  for (const g of addedGenres) {
+    const tag = document.createElement('span');
+    tag.className = 'genre-tag';
+    tag.innerHTML = `${escHtml(g)}<button class="remove" onclick="removeGenre('${escAttr(g)}')">&times;</button>`;
+    container.appendChild(tag);
+  }
+}
+
+function updateNextButton() {
+  document.getElementById('next-btn').disabled = addedGenres.length === 0;
+}
+
+function escHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function escAttr(s) {
+  return s.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
+
+// Step 2: Discover sources for each genre
+async function goToStep2() {
+  document.getElementById('step-1').classList.remove('active');
+  document.getElementById('step-2').classList.add('active');
+
+  document.getElementById('wizard-title').textContent = 'Select your sources';
+  document.getElementById('wizard-subtitle').textContent = 'We found these sources for your genres. Uncheck any you don\'t want.';
+
+  const container = document.getElementById('sources-container');
+  container.innerHTML = '';
+
+  for (const genre of addedGenres) {
+    const section = document.createElement('div');
+    section.className = 'genre-sources-section';
+    section.innerHTML = `
+      <div class="genre-section-title">${escHtml(genre)}</div>
+      <div class="discovering-notice" id="discover-${CSS.escape(genre)}">
+        <div class="spinner"></div><br>
+        Discovering sources for ${escHtml(genre)}...
+      </div>
+    `;
+    container.appendChild(section);
+
+    // Fetch sources
+    try {
+      const res = await fetch('/api/discover', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({genre})
+      });
+      const data = await res.json();
+      genreSources[genre] = data;
+      renderSourcesForGenre(section, genre, data);
+    } catch (e) {
+      const notice = section.querySelector('.discovering-notice');
+      if (notice)
+        notice.innerHTML = `<span style="color:var(--red)">Failed to discover sources. You can still proceed.</span>`;
+      genreSources[genre] = {youtube: [], reddit: [], deezer_playlists: [], deezer_searches: []};
+    }
+  }
+}
+
+function renderSourcesForGenre(section, genre, data) {
+  const notice = section.querySelector('.discovering-notice');
+  if (notice)
+    notice.remove();
+
+  const prefix = CSS.escape(genre);
+  let html = '';
+  let hasAnySources = false;
+
+  // YouTube Channels
+  if (data.youtube && data.youtube.length > 0) {
+    hasAnySources = true;
+    html += `<div class="source-group">`;
+    html += `<div class="source-group-title youtube">YouTube Channels</div>`;
+    for (let i = 0; i < data.youtube.length; i++) {
+      const ch = data.youtube[i];
+      html += `
+        <div class="source-item" id="yt-${prefix}-${i}">
+          <input type="checkbox" checked data-genre="${escAttr(genre)}" data-type="youtube" data-idx="${i}"
+                 onchange="toggleSourceItem(this)">
+          <span class="source-name">${escHtml(ch.name)}</span>
+        </div>
+      `;
+    }
+    html += `</div>`;
+  }
+
+  // Subreddits
+  if (data.reddit && data.reddit.length > 0) {
+    hasAnySources = true;
+    html += `<div class="source-group">`;
+    html += `<div class="source-group-title reddit">Subreddits</div>`;
+    for (let i = 0; i < data.reddit.length; i++) {
+      const sub = data.reddit[i];
+      html += `
+        <div class="source-item" id="rd-${prefix}-${i}">
+          <input type="checkbox" checked data-genre="${escAttr(genre)}" data-type="reddit" data-idx="${i}"
+                 onchange="toggleSourceItem(this)">
+          <span class="source-name">${escHtml(sub.name)}</span>
+        </div>
+      `;
+    }
+    html += `</div>`;
+  }
+
+  // Deezer Playlists
+  if (data.deezer_playlists && data.deezer_playlists.length > 0) {
+    hasAnySources = true;
+    html += `<div class="source-group">`;
+    html += `<div class="source-group-title deezer">Deezer Playlists</div>`;
+    for (let i = 0; i < data.deezer_playlists.length; i++) {
+      const pl = data.deezer_playlists[i];
+      const trackCount = pl.track_count ? `${pl.track_count} tracks` : '';
+      html += `
+        <div class="source-item" id="dp-${prefix}-${i}">
+          <input type="checkbox" checked data-genre="${escAttr(genre)}" data-type="deezer_playlists" data-idx="${i}"
+                 onchange="toggleSourceItem(this)">
+          <span class="source-name">${escHtml(pl.name)}</span>
+          <span class="source-detail">${trackCount}</span>
+        </div>
+      `;
+    }
+    html += `</div>`;
+  }
+
+  // Search Terms
+  if (data.deezer_searches && data.deezer_searches.length > 0) {
+    hasAnySources = true;
+    html += `<div class="source-group">`;
+    html += `<div class="source-group-title search">Search Terms</div>`;
+    for (let i = 0; i < data.deezer_searches.length; i++) {
+      const term = data.deezer_searches[i];
+      html += `
+        <div class="source-item" id="ds-${prefix}-${i}">
+          <input type="checkbox" checked data-genre="${escAttr(genre)}" data-type="deezer_searches" data-idx="${i}"
+                 onchange="toggleSourceItem(this)">
+          <span class="source-name">${escHtml(term)}</span>
+          <span class="source-detail">Deezer search</span>
+        </div>
+      `;
+    }
+    html += `</div>`;
+  }
+
+  if (!hasAnySources)
+    html = `<div class="no-sources-msg">No sources discovered. The genre will be added with default search terms.</div>`;
+
+  section.insertAdjacentHTML('beforeend', html);
+}
+
+function toggleSourceItem(checkbox) {
+  const item = checkbox.closest('.source-item');
+  if (checkbox.checked)
+    item.classList.remove('unchecked');
+  else
+    item.classList.add('unchecked');
+}
+
+function goToStep1() {
+  document.getElementById('step-2').classList.remove('active');
+  document.getElementById('step-1').classList.add('active');
+
+  if (isAddMode) {
+    document.getElementById('wizard-title').textContent = 'Add a new genre';
+    document.getElementById('wizard-subtitle').textContent = 'Search for a genre and choose your sources';
+  } else {
+    document.getElementById('wizard-title').textContent = 'What music do you want to discover?';
+    document.getElementById('wizard-subtitle').textContent = 'Add one or more genres to get started';
+  }
+}
+
+// Step 3: Save genres and redirect
+async function startDiscovering() {
+  document.getElementById('step-2').classList.remove('active');
+  document.getElementById('step-3').classList.add('active');
+
+  document.getElementById('wizard-title').textContent = 'Setting up...';
+  document.getElementById('wizard-subtitle').textContent = '';
+
+  const progressContainer = document.getElementById('progress-items');
+  progressContainer.innerHTML = '';
+
+  // Build progress items
+  for (const genre of addedGenres) {
+    const item = document.createElement('div');
+    item.className = 'progress-item';
+    item.id = `progress-${CSS.escape(genre)}`;
+    item.innerHTML = `<span class="check">&#9675;</span> ${escHtml(genre)}`;
+    progressContainer.appendChild(item);
+  }
+
+  // Save each genre
+  for (const genre of addedGenres) {
+    const progressItem = document.getElementById(`progress-${CSS.escape(genre)}`);
+    progressItem.className = 'progress-item active';
+    progressItem.querySelector('.check').innerHTML = '&#9684;';
+
+    // Build selected sources from checkboxes
+    const sources = buildSelectedSources(genre);
+
+    try {
+      const res = await fetch('/api/genres', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name: genre, sources})
+      });
+      const result = await res.json();
+
+      if (result.error) {
+        progressItem.innerHTML = `<span class="check" style="color:var(--gold)">&#9888;</span> ${escHtml(genre)} — ${escHtml(result.error)}`;
+        progressItem.className = 'progress-item';
+        progressItem.style.color = 'var(--gold)';
+      } else {
+        progressItem.className = 'progress-item done';
+        progressItem.querySelector('.check').innerHTML = '&#10003;';
+      }
+    } catch (e) {
+      progressItem.innerHTML = `<span class="check" style="color:var(--red)">&#10007;</span> ${escHtml(genre)} — failed`;
+      progressItem.className = 'progress-item';
+      progressItem.style.color = 'var(--red)';
+    }
+  }
+
+  // Short delay then redirect
+  setTimeout(() => {
+    window.location.href = '/';
+  }, 1200);
+}
+
+function buildSelectedSources(genre) {
+  const data = genreSources[genre] || {youtube: [], reddit: [], deezer_playlists: [], deezer_searches: []};
+  const sources = {youtube: [], reddit: [], deezer_playlists: [], deezer_searches: []};
+
+  // Check which checkboxes are checked
+  const checkboxes = document.querySelectorAll(`input[type="checkbox"][data-genre="${CSS.escape(genre)}"]`);
+  for (const cb of checkboxes) {
+    if (!cb.checked)
+      continue;
+    const type = cb.dataset.type;
+    const idx = parseInt(cb.dataset.idx, 10);
+    const item = data[type]?.[idx];
+    if (!item)
+      continue;
+
+    if (type === 'youtube')
+      sources.youtube.push({name: item.name, id: item.id, enabled: true});
+    else if (type === 'reddit')
+      sources.reddit.push({name: item.name, sub: item.sub, enabled: true});
+    else if (type === 'deezer_playlists')
+      sources.deezer_playlists.push({name: item.name, id: item.id, enabled: true});
+    else if (type === 'deezer_searches')
+      sources.deezer_searches.push(item);
+  }
+
+  return sources;
+}
+
+// Init
+renderSuggestions();
+
+document.getElementById('genre-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    addGenre();
+  }
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Music Discoverer</title>
+<style>
+  :root {
+    --bg: #0a0a12;
+    --surface: #12121f;
+    --surface2: #1a1a2e;
+    --border: #2a2a44;
+    --text: #e0e0f0;
+    --text-dim: #8888aa;
+    --accent: #6c5ce7;
+    --accent-glow: #a29bfe;
+    --gold: #ffd700;
+    --gold-dim: #5a4e00;
+    --green: #00cec9;
+    --red: #ff6b6b;
+    --pink: #fd79a8;
+    --deezer: #A238FF;
+    --youtube: #FF0000;
+    --reddit: #FF4500;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  .app {
+    display: grid;
+    grid-template-columns: 1fr 420px;
+    grid-template-rows: auto 1fr;
+    height: 100vh;
+    gap: 0;
+  }
+
+  header {
+    grid-column: 1 / -1;
+    padding: 12px 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    background: linear-gradient(135deg, var(--accent-glow), var(--pink));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    white-space: nowrap;
+  }
+
+  .header-controls {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  select, button {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  select:hover, button:hover { border-color: var(--accent); }
+
+  button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+
+  button.primary:hover { background: var(--accent-glow); }
+
+  button.refresh-btn {
+    background: var(--green);
+    border-color: var(--green);
+    color: var(--bg);
+    font-weight: 600;
+  }
+
+  button.refresh-btn:hover { opacity: 0.85; }
+  button.refresh-btn.spinning { animation: spin 1s linear infinite; }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  .stats-bar {
+    display: flex;
+    gap: 12px;
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-left: auto;
+  }
+
+  .stats-bar span { white-space: nowrap; }
+  .stats-bar .num { color: var(--accent-glow); font-weight: 600; }
+
+  .main-panel {
+    overflow-y: auto;
+    padding: 16px;
+  }
+
+  .refresh-banner {
+    background: var(--surface2);
+    border: 1px solid var(--green);
+    border-radius: 8px;
+    padding: 10px 16px;
+    margin-bottom: 16px;
+    font-size: 13px;
+    color: var(--green);
+    display: none;
+  }
+
+  .refresh-banner.visible { display: block; }
+
+  .tracks-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 12px;
+  }
+
+  .track-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .track-card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 20px rgba(108, 92, 231, 0.1);
+  }
+
+  .track-card.playing {
+    border-color: var(--green);
+    box-shadow: 0 0 20px rgba(0, 206, 201, 0.15);
+  }
+
+  .track-top {
+    display: flex;
+    gap: 12px;
+  }
+
+  .track-thumb {
+    width: 72px;
+    height: 72px;
+    border-radius: 6px;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: var(--surface2);
+  }
+
+  .track-thumb.placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--border);
+    font-size: 24px;
+  }
+
+  .track-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .track-info h3 {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  .track-info .artist {
+    font-size: 12px;
+    color: var(--accent-glow);
+    margin-top: 2px;
+  }
+
+  .track-info .vocalist {
+    font-size: 11px;
+    color: var(--pink);
+    margin-top: 1px;
+  }
+
+  .track-meta {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+  }
+
+  .tag {
+    font-size: 10px;
+    padding: 1px 7px;
+    border-radius: 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+
+  .tag.source-youtube { border-color: var(--youtube); color: var(--youtube); }
+  .tag.source-deezer { border-color: var(--deezer); color: var(--deezer); }
+  .tag.source-reddit { border-color: var(--reddit); color: var(--reddit); }
+  .tag.source-curated { border-color: var(--accent); color: var(--accent-glow); }
+  .tag.subgenre { border-color: var(--accent); color: var(--accent-glow); }
+  .tag.energy-high { border-color: var(--red); color: var(--red); }
+  .tag.energy-mid { border-color: var(--gold); color: var(--gold); }
+  .tag.energy-low { border-color: var(--green); color: var(--green); }
+
+  .track-reasons {
+    font-size: 11px;
+    color: var(--green);
+    font-style: italic;
+    min-height: 14px;
+  }
+
+  .track-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-top: auto;
+  }
+
+  .btn-play {
+    background: var(--green);
+    border-color: var(--green);
+    color: var(--bg);
+    font-weight: 700;
+    padding: 5px 14px;
+  }
+
+  .btn-play:hover { opacity: 0.85; }
+
+  .btn-deezer {
+    background: var(--deezer);
+    border-color: var(--deezer);
+    color: #fff;
+    font-weight: 600;
+    padding: 5px 10px;
+  }
+
+  .btn-skip {
+    background: transparent;
+    border-color: var(--border);
+    color: var(--text-dim);
+    padding: 5px 10px;
+    margin-left: auto;
+  }
+
+  .stars { display: flex; gap: 1px; }
+
+  .star {
+    cursor: pointer;
+    font-size: 20px;
+    color: var(--gold-dim);
+    transition: color 0.1s, transform 0.1s;
+    background: none;
+    border: none;
+    padding: 0 1px;
+    line-height: 1;
+  }
+
+  .star:hover { transform: scale(1.2); }
+  .star.active { color: var(--gold); }
+  .star.hover-preview { color: var(--gold); opacity: 0.7; }
+
+  .rated-badge {
+    font-size: 11px;
+    color: var(--green);
+    font-weight: 600;
+  }
+
+  .player-panel {
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .player-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .player-header h2 {
+    font-size: 13px;
+    color: var(--text-dim);
+    font-weight: 500;
+  }
+
+  .now-playing {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    display: none;
+  }
+
+  .now-playing.active { display: block; }
+
+  .now-playing h3 { font-size: 15px; font-weight: 600; }
+
+  .now-playing .artist {
+    color: var(--accent-glow);
+    font-size: 13px;
+    margin-top: 3px;
+  }
+
+  .now-playing .rate-prompt {
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .now-playing .rate-section {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 6px;
+  }
+
+  .now-playing .stars { gap: 3px; }
+  .now-playing .star { font-size: 26px; }
+
+  .player-preview {
+    display: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .player-preview.active {
+    display: block;
+  }
+
+  .player-preview iframe {
+    width: 100%;
+    border: none;
+    border-radius: 0;
+  }
+
+  .player-full-links {
+    display: none;
+    padding: 10px 16px;
+    gap: 8px;
+    border-bottom: 1px solid var(--border);
+    align-items: center;
+  }
+
+  .player-full-links.active {
+    display: flex;
+  }
+
+  .player-full-links .label {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-right: auto;
+  }
+
+  .btn-open-yt {
+    background: var(--youtube);
+    border-color: var(--youtube);
+    color: #fff;
+    font-weight: 600;
+    padding: 6px 14px;
+    font-size: 12px;
+  }
+
+  .btn-open-dz {
+    background: var(--deezer);
+    border-color: var(--deezer);
+    color: #fff;
+    font-weight: 600;
+    padding: 6px 14px;
+    font-size: 12px;
+  }
+
+  .audio-preview {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .audio-preview audio {
+    width: 100%;
+    height: 36px;
+    border-radius: 6px;
+  }
+
+  .audio-preview .preview-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+
+  .player-frame {
+    flex: 1;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .player-frame iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+  }
+
+  .player-placeholder {
+    color: var(--text-dim);
+    font-size: 13px;
+    text-align: center;
+    padding: 40px;
+    line-height: 1.6;
+  }
+
+  .player-placeholder .hint {
+    font-size: 11px;
+    margin-top: 8px;
+    color: var(--border);
+  }
+
+  .stats-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .stats-overlay.visible { display: flex; }
+
+  .stats-modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    max-width: 540px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+
+  .stats-modal h2 {
+    font-size: 18px;
+    margin-bottom: 16px;
+    background: linear-gradient(135deg, var(--accent-glow), var(--pink));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .stats-modal h3 {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin: 16px 0 10px;
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .stat-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    text-align: center;
+  }
+
+  .stat-card .value {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--accent-glow);
+  }
+
+  .stat-card .label {
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  .source-bars, .subgenre-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .bar-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .bar-row .name {
+    width: 100px;
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: capitalize;
+    text-align: right;
+  }
+
+  .bar-row .bar-bg {
+    flex: 1;
+    height: 16px;
+    background: var(--surface2);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .bar-row .bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent-glow));
+    border-radius: 4px;
+    transition: width 0.3s;
+  }
+
+  .bar-row .bar-label {
+    position: absolute;
+    right: 6px;
+    top: 1px;
+    font-size: 10px;
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  .sources-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 8px;
+  }
+
+  .source-type-header {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    margin-top: 10px;
+    margin-bottom: 2px;
+  }
+
+  .source-type-header:first-child { margin-top: 0; }
+
+  .source-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
+    background: var(--surface2);
+    border-radius: 6px;
+    font-size: 12px;
+  }
+
+  .source-status { flex-shrink: 0; font-size: 8px; }
+
+  .source-name {
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+  }
+
+  .source-detail {
+    color: var(--text-dim);
+    font-size: 11px;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .source-count {
+    font-size: 11px;
+    color: var(--text-dim);
+    white-space: nowrap;
+    margin-left: auto;
+  }
+
+  @media (max-width: 900px) {
+    .app {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto 1fr auto;
+    }
+    .player-panel {
+      border-left: none;
+      border-top: 1px solid var(--border);
+      max-height: 45vh;
+    }
+    .tracks-grid { grid-template-columns: 1fr; }
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-dim);
+  }
+
+  .empty-state h3 { font-size: 16px; margin-bottom: 8px; color: var(--text); }
+
+  .setup-banner {
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 16px;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  .setup-banner h3 {
+    color: var(--accent-glow);
+    margin-bottom: 8px;
+    font-size: 14px;
+  }
+
+  .setup-banner code {
+    background: var(--surface2);
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <h1>Music Discoverer</h1>
+    <div class="header-controls">
+      <select id="filter-genre" onchange="loadRecommendations()">
+        <option value="">All genres</option>
+      </select>
+      <select id="filter-source" onchange="loadRecommendations()">
+        <option value="">All sources</option>
+        <option value="youtube">YouTube</option>
+        <option value="deezer">Deezer</option>
+        <option value="reddit">Reddit</option>
+        <option value="curated">Curated</option>
+      </select>
+      <select id="filter-subgenre" onchange="loadRecommendations()">
+        <option value="">All subgenres</option>
+        <option value="classic">Classic</option>
+        <option value="uplifting">Uplifting</option>
+        <option value="progressive">Progressive</option>
+        <option value="balearic">Balearic</option>
+      </select>
+      <select id="filter-energy" onchange="loadRecommendations()">
+        <option value="">Any energy</option>
+        <option value="8">High (8+)</option>
+        <option value="6">Medium+ (6+)</option>
+      </select>
+      <select id="filter-sort" onchange="loadRecommendations()">
+        <option value="newest">Newest first</option>
+        <option value="smart">Smart (rated)</option>
+        <option value="random">Random</option>
+      </select>
+      <button class="primary" onclick="loadRecommendations()">Recommend</button>
+      <button class="primary" onclick="window.location='/setup?mode=add'" style="font-size:12px">+ Genre</button>
+      <button class="refresh-btn" id="refresh-btn" onclick="refreshSources()">Refresh Sources</button>
+      <button onclick="showStats()">Stats</button>
+      <button onclick="window.location='/settings'" title="Settings" style="font-size:16px">&#9881;</button>
+    </div>
+    <div class="stats-bar" id="stats-bar"></div>
+  </header>
+
+  <div class="main-panel">
+    <div class="refresh-banner" id="refresh-banner"></div>
+    <div id="setup-area"></div>
+    <div class="tracks-grid" id="tracks-grid"></div>
+  </div>
+
+  <div class="player-panel">
+    <div class="player-header">
+      <h2>Player</h2>
+    </div>
+    <div class="now-playing" id="now-playing">
+      <h3 id="np-title"></h3>
+      <div class="artist" id="np-artist"></div>
+      <div class="rate-prompt">Rate this track:</div>
+      <div class="rate-section">
+        <div class="stars" id="np-stars"></div>
+        <span class="rated-badge" id="np-rated" style="display:none">Saved!</span>
+      </div>
+    </div>
+    <div class="player-preview" id="player-preview"></div>
+    <div class="player-full-links" id="player-full-links"></div>
+    <div class="player-frame" id="player-frame">
+      <div class="player-placeholder">
+        Click <strong>Play</strong> on any track<br>
+        <span class="hint">Preview plays here, then open the full track</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="stats-overlay" id="stats-overlay" onclick="if(event.target===this)this.classList.remove('visible')">
+  <div class="stats-modal" id="stats-modal"></div>
+</div>
+
+<script>
+let currentTrack = null;
+let allRatings = {};
+
+async function api(path, opts) {
+  const res = await fetch(path, opts);
+  return res.json();
+}
+
+function enc(s) { return encodeURIComponent(s); }
+
+// youtubeEmbed removed — direct embed handled in playTrack()
+
+function deezerUrl(track) {
+  if (track.deezer_id) return `https://www.deezer.com/track/${track.deezer_id}`;
+  return `https://www.deezer.com/search/${enc(track.artist + ' ' + track.title)}`;
+}
+
+function youtubeUrl(track) {
+  if (track.youtube_id) return `https://www.youtube.com/watch?v=${track.youtube_id}`;
+  return `https://www.youtube.com/results?search_query=${enc(track.artist + ' - ' + track.title)}`;
+}
+
+function sourceClass(t) {
+  const st = t.source_type || '';
+  if (st === 'youtube') return 'source-youtube';
+  if (st === 'deezer') return 'source-deezer';
+  if (st === 'reddit') return 'source-reddit';
+  return 'source-curated';
+}
+
+function sourceLabel(t) {
+  const st = t.source_type || 'curated';
+  const s = t.source || '';
+  if (st === 'youtube') {
+    const ch = s.replace('youtube:', '');
+    return ch || 'YouTube';
+  }
+  if (st === 'deezer') return 'Deezer';
+  if (st === 'reddit') {
+    const sub = s.replace('reddit:', '');
+    return sub || 'Reddit';
+  }
+  return 'Curated';
+}
+
+function energyClass(level) {
+  if (level >= 8) return 'energy-high';
+  if (level >= 6) return 'energy-mid';
+  return 'energy-low';
+}
+
+function energyLabel(level) {
+  if (!level) return '';
+  if (level >= 8) return 'Peak Time';
+  if (level >= 6) return 'Energetic';
+  if (level >= 4) return 'Mellow';
+  return 'Chill';
+}
+
+function createStars(trackId, container) {
+  container.innerHTML = '';
+  const existing = allRatings[trackId];
+  const currentRating = existing && !existing.skipped ? existing.rating : 0;
+
+  for (let i = 1; i <= 5; i++) {
+    const star = document.createElement('button');
+    star.className = `star${i <= currentRating ? ' active' : ''}`;
+    star.textContent = '\u2605';
+    star.onclick = (e) => { e.stopPropagation(); rateTrack(trackId, i); };
+    star.onmouseenter = () => {
+      container.querySelectorAll('.star').forEach((s, idx) => {
+        s.classList.toggle('hover-preview', idx < i && !s.classList.contains('active'));
+      });
+    };
+    star.onmouseleave = () => {
+      container.querySelectorAll('.star').forEach(s => s.classList.remove('hover-preview'));
+    };
+    container.appendChild(star);
+  }
+}
+
+async function replaceCard(trackId) {
+  const card = document.querySelector(`[data-track-id="${CSS.escape(trackId)}"]`);
+  if (!card) return;
+
+  // Collect all visible track IDs so we don't swap in a duplicate
+  const visibleIds = [...document.querySelectorAll('.track-card[data-track-id]')]
+    .map(c => c.dataset.trackId)
+    .filter(id => id !== trackId);
+
+  // Fetch a small batch and pick the first one not already visible
+  const genre = document.getElementById('filter-genre').value;
+  const source = document.getElementById('filter-source').value;
+  const subgenre = document.getElementById('filter-subgenre').value;
+  const minEnergy = document.getElementById('filter-energy').value;
+  const sort = document.getElementById('filter-sort').value;
+  let url = '/api/recommend?count=20';
+  if (genre) url += `&genre=${encodeURIComponent(genre)}`;
+  if (source) url += `&source_type=${source}`;
+  if (subgenre) url += `&subgenre=${subgenre}`;
+  if (minEnergy) url += `&min_energy=${minEnergy}`;
+  if (sort) url += `&sort=${sort}`;
+
+  const candidates = await api(url);
+  const replacements = candidates.filter(t => !visibleIds.includes(t.id));
+
+  // Animate out
+  card.style.transition = 'opacity 0.25s, transform 0.25s';
+  card.style.opacity = '0';
+  card.style.transform = 'scale(0.95)';
+
+  setTimeout(() => {
+    if (replacements.length > 0) {
+      const newCard = renderTrack(replacements[0]);
+      newCard.style.opacity = '0';
+      newCard.style.transform = 'scale(0.95)';
+      card.replaceWith(newCard);
+      requestAnimationFrame(() => {
+        newCard.style.transition = 'opacity 0.25s, transform 0.25s';
+        newCard.style.opacity = '1';
+        newCard.style.transform = 'scale(1)';
+      });
+    } else {
+      card.remove();
+    }
+  }, 250);
+}
+
+async function rateTrack(trackId, rating) {
+  allRatings[trackId] = { rating, skipped: false };
+  await api('/api/rate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: trackId, rating })
+  });
+
+  if (currentTrack && currentTrack.id === trackId) {
+    const npStars = document.getElementById('np-stars');
+    npStars.querySelectorAll('.star').forEach((s, idx) => s.classList.toggle('active', idx < rating));
+    const badge = document.getElementById('np-rated');
+    badge.style.display = 'inline';
+    setTimeout(() => badge.style.display = 'none', 2000);
+  }
+
+  refreshStatsBar();
+  replaceCard(trackId);
+}
+
+async function skipTrack(trackId) {
+  allRatings[trackId] = { rating: 0, skipped: true };
+  await api('/api/skip', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: trackId })
+  });
+  refreshStatsBar();
+  replaceCard(trackId);
+}
+
+function playTrack(track) {
+  currentTrack = track;
+
+  document.querySelectorAll('.track-card').forEach(c => c.classList.remove('playing'));
+  const card = document.querySelector(`[data-track-id="${CSS.escape(track.id)}"]`);
+  if (card) card.classList.add('playing');
+
+  const np = document.getElementById('now-playing');
+  np.classList.add('active');
+  document.getElementById('np-title').textContent = track.title;
+  const vocStr = (track.vocalists || []).length ? ` ft. ${track.vocalists.join(', ')}` : '';
+  document.getElementById('np-artist').textContent = track.artist + vocStr;
+
+  createStars(track.id, document.getElementById('np-stars'));
+  document.getElementById('np-rated').style.display = 'none';
+
+  const preview = document.getElementById('player-preview');
+  const fullLinks = document.getElementById('player-full-links');
+  const frame = document.getElementById('player-frame');
+
+  // Audio preview (Deezer 30-second MP3 clip)
+  if (track.preview_url) {
+    preview.innerHTML = `
+      <div class="audio-preview">
+        <div class="preview-label">30-second preview</div>
+        <audio controls autoplay src="${track.preview_url}"></audio>
+      </div>
+    `;
+    preview.classList.add('active');
+  } else {
+    preview.innerHTML = '';
+    preview.classList.remove('active');
+  }
+
+  // Full track links — always shown
+  const ytUrl = youtubeUrl(track);
+  const dzUrl = deezerUrl(track);
+  fullLinks.innerHTML = `
+    <span class="label">Open full track:</span>
+    <button class="btn-open-yt" onclick="window.open('${ytUrl}')">YouTube</button>
+    <button class="btn-open-dz" onclick="window.open('${dzUrl}')">Deezer</button>
+  `;
+  fullLinks.classList.add('active');
+
+  // YouTube video embed in the main frame (if we have a video ID)
+  if (track.youtube_id) {
+    frame.innerHTML = `<iframe src="https://www.youtube.com/embed/${track.youtube_id}?autoplay=1&rel=0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+  } else {
+    const thumb = thumbUrl(track);
+    frame.innerHTML = `
+      <div class="player-placeholder">
+        ${thumb ? `<img src="${thumb}" style="width:180px;border-radius:8px;margin-bottom:12px" alt="">` : ''}
+        ${track.preview_url ? '<br>Preview playing above' : '<br>Use the buttons above to listen'}
+      </div>
+    `;
+  }
+}
+
+function thumbUrl(track) {
+  if (track.thumbnail) return track.thumbnail;
+  if (track.youtube_id) return `https://img.youtube.com/vi/${track.youtube_id}/mqdefault.jpg`;
+  return '';
+}
+
+function renderTrack(track) {
+  const vocStr = (track.vocalists || []).join(', ');
+  const reasons = (track._reasons || []).join(' \u00b7 ');
+  const rating = allRatings[track.id];
+  const ratedText = rating && !rating.skipped ? `${rating.rating}/5` : '';
+
+  const card = document.createElement('div');
+  card.className = 'track-card';
+  card.dataset.trackId = track.id;
+
+  let metaTags = `<span class="tag ${sourceClass(track)}">${sourceLabel(track)}</span>`;
+  if (track.subgenre) metaTags += `<span class="tag subgenre">${track.subgenre}</span>`;
+  if (track.energy) metaTags += `<span class="tag ${energyClass(track.energy)}">${energyLabel(track.energy)}</span>`;
+  if (track.bpm) metaTags += `<span class="tag">${track.bpm} BPM</span>`;
+  if (track.year) metaTags += `<span class="tag">${track.year}</span>`;
+
+  const sources = track.sources || [];
+  if (sources.length > 1) {
+    metaTags += `<span class="tag" style="border-color:var(--green);color:var(--green)">${sources.length} sources</span>`;
+  }
+
+  const thumb = thumbUrl(track);
+  const thumbHtml = thumb
+    ? `<img class="track-thumb" src="${thumb}" alt="" loading="lazy" onerror="this.outerHTML='<div class=\\'track-thumb placeholder\\'>&#9835;</div>'">`
+    : `<div class="track-thumb placeholder">&#9835;</div>`;
+
+  card.innerHTML = `
+    <div class="track-top">
+      ${thumbHtml}
+      <div class="track-info">
+        <h3>${track.title}</h3>
+        <div class="artist">${track.artist}</div>
+        ${vocStr ? `<div class="vocalist">ft. ${vocStr}</div>` : ''}
+      </div>
+    </div>
+    <div class="track-meta">${metaTags}</div>
+    ${reasons ? `<div class="track-reasons">${reasons}</div>` : '<div class="track-reasons"></div>'}
+    <div class="stars" data-stars></div>
+    <div class="track-actions">
+      <button class="btn-skip" data-skip>Skip</button>
+      ${ratedText ? `<span class="rated-badge">${ratedText}</span>` : ''}
+    </div>
+  `;
+
+  // Whole card is clickable to select/play
+  card.style.cursor = 'pointer';
+  card.onclick = (e) => {
+    // Don't trigger if clicking stars or skip
+    if (e.target.closest('.star') || e.target.closest('[data-skip]')) return;
+    playTrack(track);
+  };
+  card.querySelector('[data-skip]').onclick = (e) => { e.stopPropagation(); skipTrack(track.id); };
+
+  createStars(track.id, card.querySelector('[data-stars]'));
+  return card;
+}
+
+async function loadRecommendations() {
+  const genre = document.getElementById('filter-genre').value;
+  const source = document.getElementById('filter-source').value;
+  const subgenre = document.getElementById('filter-subgenre').value;
+  const minEnergy = document.getElementById('filter-energy').value;
+  const sort = document.getElementById('filter-sort').value;
+
+  let url = '/api/recommend?count=12';
+  if (genre) url += `&genre=${encodeURIComponent(genre)}`;
+  if (source) url += `&source_type=${source}`;
+  if (subgenre) url += `&subgenre=${subgenre}`;
+  if (minEnergy) url += `&min_energy=${minEnergy}`;
+  if (sort) url += `&sort=${sort}`;
+
+  const raw = await api(url);
+  // Deduplicate by ID
+  const seen = new Set();
+  const tracks = raw.filter(t => { if (seen.has(t.id)) return false; seen.add(t.id); return true; });
+  const grid = document.getElementById('tracks-grid');
+
+  if (tracks.length === 0) {
+    grid.innerHTML = `
+      <div class="empty-state">
+        <h3>No unrated tracks match these filters</h3>
+        <p>Try different filters, click Refresh Sources, or broaden your search.</p>
+      </div>
+    `;
+    return;
+  }
+
+  grid.innerHTML = '';
+  tracks.forEach(t => grid.appendChild(renderTrack(t)));
+}
+
+async function refreshStatsBar() {
+  const stats = await api('/api/stats');
+  const bar = document.getElementById('stats-bar');
+
+  let sourceStr = '';
+  if (stats.sources) {
+    const parts = [];
+    for (const [k, v] of Object.entries(stats.sources))
+      parts.push(`<span class="num">${v}</span> ${k}`);
+    sourceStr = parts.join(' | ');
+  }
+
+  bar.innerHTML = `
+    <span><span class="num">${stats.total_tracks}</span> tracks</span>
+    <span><span class="num">${stats.rated}</span> rated</span>
+    <span><span class="num">${stats.unrated}</span> to go</span>
+    ${stats.avg_rating ? `<span>avg <span class="num">${stats.avg_rating}</span>\u2605</span>` : ''}
+  `;
+
+  document.getElementById('setup-area').innerHTML = '';
+}
+
+async function refreshSources() {
+  const btn = document.getElementById('refresh-btn');
+  const banner = document.getElementById('refresh-banner');
+
+  btn.disabled = true;
+  btn.textContent = 'Refreshing...';
+  banner.textContent = 'Fetching new tracks from all sources...';
+  banner.classList.add('visible');
+
+  await api('/api/refresh', { method: 'POST' });
+
+  // Poll for completion
+  const poll = setInterval(async () => {
+    const status = await api('/api/refresh/status');
+    if (!status.running) {
+      clearInterval(poll);
+      btn.disabled = false;
+      btn.textContent = 'Refresh Sources';
+
+      const r = status.last_result;
+      if (r) {
+        const parts = [];
+        for (const [k, v] of Object.entries(r.sources || {}))
+          if (v.new > 0) parts.push(`${v.new} from ${k}`);
+        if (parts.length > 0)
+          banner.textContent = `Found ${r.new_tracks} new tracks: ${parts.join(', ')}. Total: ${r.total_tracks}`;
+        else
+          banner.textContent = `No new tracks found. Total: ${r.total_tracks} tracks in database.`;
+
+        banner.classList.add('visible');
+        setTimeout(() => banner.classList.remove('visible'), 8000);
+      }
+
+      await refreshStatsBar();
+      await loadRecommendations();
+    }
+  }, 1500);
+}
+
+async function showStats() {
+  const [stats, sourcesInfo] = await Promise.all([
+    api('/api/stats'),
+    api('/api/sources'),
+  ]);
+  const modal = document.getElementById('stats-modal');
+
+  // Configured sources table
+  const typeColors = { youtube: '--youtube', deezer: '--deezer', reddit: '--reddit', curated: '--accent' };
+
+  let sourcesHtml = '<div class="sources-list">';
+  let currentType = '';
+  for (const s of sourcesInfo) {
+    if (s.type !== currentType) {
+      currentType = s.type;
+      sourcesHtml += `<div class="source-type-header" style="color:var(${typeColors[s.type] || '--text-dim'})">${s.type.toUpperCase()}</div>`;
+    }
+    const statusDot = s.configured
+      ? (s.tracks > 0 ? '<span style="color:var(--green)">&#9679;</span>' : '<span style="color:var(--gold)">&#9679;</span>')
+      : '<span style="color:var(--red)">&#9679;</span>';
+    const statusText = !s.configured ? 'not configured' : (s.tracks > 0 ? `${s.tracks} tracks` : 'no tracks yet');
+    sourcesHtml += `
+      <div class="source-row">
+        <span class="source-status">${statusDot}</span>
+        <span class="source-name">${s.name}</span>
+        <span class="source-detail">${s.detail}</span>
+        <span class="source-count">${statusText}</span>
+      </div>
+    `;
+  }
+  sourcesHtml += '</div>';
+
+  // Aggregate source bars
+  const aggSources = stats.sources || {};
+  const maxSource = Math.max(...Object.values(aggSources), 1);
+  let sourceBars = '';
+  for (const [name, count] of Object.entries(aggSources)) {
+    const pct = (count / maxSource * 100).toFixed(0);
+    const colorVar = typeColors[name] || '--accent';
+    sourceBars += `
+      <div class="bar-row">
+        <span class="name">${name}</span>
+        <div class="bar-bg">
+          <div class="bar-fill" style="width:${pct}%;background:var(${colorVar})"></div>
+          <span class="bar-label">${count}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  // Genre bars
+  const genres = stats.genres_breakdown || {};
+  const maxGenre = Math.max(...Object.values(genres), 1);
+  let genreBars = '';
+  for (const [name, count] of Object.entries(genres)) {
+    const pct = (count / maxGenre * 100).toFixed(0);
+    genreBars += `
+      <div class="bar-row">
+        <span class="name">${name}</span>
+        <div class="bar-bg">
+          <div class="bar-fill" style="width:${pct}%"></div>
+          <span class="bar-label">${count}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  // Subgenre bars
+  const subgenres = stats.subgenres || {};
+  const maxSg = Math.max(...Object.values(subgenres).map(s => s.total), 1);
+  let sgBars = '';
+  for (const [name, data] of Object.entries(subgenres)) {
+    const pct = (data.total / maxSg * 100).toFixed(0);
+    const ratingStr = data.avg_rating ? ` ${data.avg_rating}\u2605` : '';
+    sgBars += `
+      <div class="bar-row">
+        <span class="name">${name}</span>
+        <div class="bar-bg">
+          <div class="bar-fill" style="width:${pct}%"></div>
+          <span class="bar-label">${data.rated}/${data.total}${ratingStr}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  modal.innerHTML = `
+    <h2>Your Music Profile</h2>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="value">${stats.rated}</div><div class="label">Rated</div></div>
+      <div class="stat-card"><div class="value">${stats.unrated}</div><div class="label">Unrated</div></div>
+      <div class="stat-card"><div class="value">${stats.avg_rating || '-'}</div><div class="label">Avg Rating</div></div>
+      <div class="stat-card"><div class="value">${stats.skipped}</div><div class="label">Skipped</div></div>
+    </div>
+    <h3>Configured Sources</h3>
+    ${sourcesHtml}
+    <h3>Tracks By Source</h3>
+    <div class="source-bars">${sourceBars}</div>
+    <h3>By Genre</h3>
+    <div class="source-bars">${genreBars}</div>
+    <h3>By Subgenre</h3>
+    <div class="subgenre-bars">${sgBars}</div>
+    <div style="margin-top:20px;text-align:center">
+      <button onclick="resetRatings()" style="color:var(--red);border-color:var(--red)">Reset All Ratings</button>
+    </div>
+  `;
+
+  document.getElementById('stats-overlay').classList.add('visible');
+}
+
+async function resetRatings() {
+  if (!confirm('Reset all ratings? This cannot be undone.')) return;
+  await api('/api/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+  allRatings = {};
+  document.getElementById('stats-overlay').classList.remove('visible');
+  loadRecommendations();
+  refreshStatsBar();
+}
+
+async function populateGenreFilter() {
+  const config = await api('/api/config');
+  const select = document.getElementById('filter-genre');
+  select.innerHTML = '<option value="">All genres</option>';
+  for (const g of (config.genres || [])) {
+    const opt = document.createElement('option');
+    opt.value = g.name;
+    opt.textContent = g.name.charAt(0).toUpperCase() + g.name.slice(1);
+    select.appendChild(opt);
+  }
+}
+
+(async () => {
+  allRatings = await api('/api/ratings');
+  await populateGenreFilter();
+  await refreshStatsBar();
+  await loadRecommendations();
+})();
+</script>
+
+</body>
+</html>
