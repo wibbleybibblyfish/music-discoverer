@@ -202,6 +202,7 @@ def fetch_reddit(genre):
 DEEZER_API = "https://api.deezer.com"
 
 REDDIT_GENRE_MAP = {
+    # Electronic
     "vocal trance": ["vocaltrance"],
     "trance": ["trance"],
     "deep house": ["deephouse"],
@@ -227,6 +228,31 @@ REDDIT_GENRE_MAP = {
     "electro": ["electro"],
     "industrial": ["industrialmusic"],
     "goa trance": ["goatrance"],
+    "electronic": ["electronicmusic"],
+    # Non-electronic
+    "jazz": ["jazz"],
+    "hip hop": ["hiphopheads"],
+    "r&b": ["rnb"],
+    "indie rock": ["indieheads"],
+    "metal": ["metal"],
+    "punk": ["punk"],
+    "classical": ["classicalmusic"],
+    "folk": ["folk"],
+    "blues": ["blues"],
+    "soul": ["soul"],
+    "country": ["country"],
+    "reggae": ["reggae"],
+    "pop": ["popheads"],
+    "rock": ["rock"],
+    "funk": ["funk"],
+    "latin": ["latinmusic"],
+    "k-pop": ["kpop"],
+    "shoegaze": ["shoegaze"],
+    "post-rock": ["postrock"],
+    "math rock": ["mathrock"],
+    "emo": ["emo"],
+    "ska": ["ska"],
+    "grunge": ["grunge"],
 }
 
 
@@ -316,14 +342,18 @@ def _deezer_track_to_dict(t, source_str, genre_name):
     }
 
 
-def enrich_deezer_dates(tracks, limit=80):
+def enrich_deezer_dates(tracks, limit=80, on_progress=None):
     """Fetch release dates from Deezer track API for tracks missing them."""
     needs_date = [t for t in tracks if t.get("deezer_id") and not t.get("release_date")]
     if not needs_date:
         return 0
 
+    batch = needs_date[:limit]
+    total = len(batch)
     enriched = 0
-    for t in needs_date[:limit]:
+    for i, t in enumerate(batch, 1):
+        if on_progress:
+            on_progress(f"Enriching release dates... {i}/{total}")
         try:
             resp = requests.get(f"{DEEZER_API}/track/{t['deezer_id']}", timeout=10)
             if resp.status_code == 200:
@@ -507,15 +537,18 @@ def search_youtube_id(artist, title):
     return ""
 
 
-def enrich_youtube_ids(tracks, limit=50):
+def enrich_youtube_ids(tracks, limit=50, on_progress=None):
     """Find YouTube video IDs for tracks that don't have one."""
     needs_id = [t for t in tracks if not t.get("youtube_id")]
     if not needs_id:
         return 0
 
     batch = needs_id[:limit]
+    total = len(batch)
     enriched = 0
-    for t in batch:
+    for i, t in enumerate(batch, 1):
+        if on_progress:
+            on_progress(f"Enriching YouTube IDs... {i}/{total}")
         vid = search_youtube_id(t["artist"], t["title"])
         if vid:
             t["youtube_id"] = vid
@@ -529,8 +562,13 @@ def enrich_youtube_ids(tracks, limit=50):
 # Main fetch orchestrator
 # ---------------------------------------------------------------------------
 
-def fetch_all(config=None):
+def fetch_all(config=None, on_progress=None):
     """Fetch from all configured sources and merge into DB."""
+    def progress(msg):
+        print(f"  {msg}")
+        if on_progress:
+            on_progress(msg)
+
     if config is None:
         config = load_config()
 
@@ -541,50 +579,45 @@ def fetch_all(config=None):
         seeds = import_seed_tracks()
         if seeds:
             existing, seed_count = merge_tracks(existing, seeds)
-            print(f"  [seed] Imported {seed_count} curated tracks")
+            progress(f"[seed] Imported {seed_count} curated tracks")
 
     total_added = 0
     source_results = {}
 
     for genre in config.get("genres", []):
         genre_name = genre["name"]
-        print(f"\n  [{genre_name}]")
-
-        # YouTube RSS
-        print(f"  Fetching YouTube channels...")
+        progress(f"[{genre_name}] Fetching YouTube channels...")
         yt_tracks = fetch_youtube(genre)
         existing, added = merge_tracks(existing, yt_tracks)
         total_added += added
         source_results[f"youtube:{genre_name}"] = {"fetched": len(yt_tracks), "new": added}
-        print(f"  [youtube] {len(yt_tracks)} found, {added} new")
+        progress(f"[{genre_name}] YouTube: {len(yt_tracks)} found, {added} new")
 
-        # Reddit RSS
-        print(f"  Fetching Reddit...")
+        progress(f"[{genre_name}] Fetching Reddit...")
         reddit_tracks = fetch_reddit(genre)
         existing, added = merge_tracks(existing, reddit_tracks)
         total_added += added
         source_results[f"reddit:{genre_name}"] = {"fetched": len(reddit_tracks), "new": added}
-        print(f"  [reddit] {len(reddit_tracks)} found, {added} new")
+        progress(f"[{genre_name}] Reddit: {len(reddit_tracks)} found, {added} new")
 
-        # Deezer API
-        print(f"  Fetching Deezer...")
+        progress(f"[{genre_name}] Fetching Deezer playlists & searches...")
         deezer_tracks = fetch_deezer(genre)
         existing, added = merge_tracks(existing, deezer_tracks)
         total_added += added
         source_results[f"deezer:{genre_name}"] = {"fetched": len(deezer_tracks), "new": added}
-        print(f"  [deezer] {len(deezer_tracks)} found, {added} new")
+        progress(f"[{genre_name}] Deezer: {len(deezer_tracks)} found, {added} new")
 
     # Enrich Deezer release dates
-    print("\n  Enriching Deezer release dates...")
-    dz_enriched = enrich_deezer_dates(existing, limit=80)
+    progress("Enriching release dates...")
+    dz_enriched = enrich_deezer_dates(existing, limit=80, on_progress=on_progress)
     source_results["enriched_dates"] = {"new": dz_enriched}
-    print(f"  [enrich] {dz_enriched} release dates found")
+    progress(f"Enriched {dz_enriched} release dates")
 
     # Enrich tracks missing YouTube IDs
-    print("  Enriching YouTube IDs...")
-    yt_enriched = enrich_youtube_ids(existing, limit=50)
+    progress("Enriching YouTube IDs...")
+    yt_enriched = enrich_youtube_ids(existing, limit=50, on_progress=on_progress)
     source_results["enriched_youtube"] = {"new": yt_enriched}
-    print(f"  [enrich] {yt_enriched} YouTube IDs found")
+    progress(f"Enriched {yt_enriched} YouTube IDs")
 
     save_discovered_db(existing)
 

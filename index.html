@@ -1087,6 +1087,9 @@ async function refreshSources() {
   // Poll for completion
   const poll = setInterval(async () => {
     const status = await api('/api/refresh/status');
+    if (status.running && status.progress) {
+      banner.textContent = status.progress;
+    }
     if (!status.running) {
       clearInterval(poll);
       btn.disabled = false;
@@ -1122,25 +1125,35 @@ async function showStats() {
   // Configured sources table
   const typeColors = { youtube: '--youtube', deezer: '--deezer', reddit: '--reddit', curated: '--accent' };
 
-  let sourcesHtml = '<div class="sources-list">';
-  let currentType = '';
+  // Group sources by genre, then by type
+  const byGenre = {};
   for (const s of sourcesInfo) {
-    if (s.type !== currentType) {
-      currentType = s.type;
-      sourcesHtml += `<div class="source-type-header" style="color:var(${typeColors[s.type] || '--text-dim'})">${s.type.toUpperCase()}</div>`;
+    const g = s.genre || 'other';
+    if (!byGenre[g]) byGenre[g] = [];
+    byGenre[g].push(s);
+  }
+
+  let sourcesHtml = '<div class="sources-list">';
+  for (const [genre, sources] of Object.entries(byGenre)) {
+    sourcesHtml += `<div class="source-type-header" style="color:var(--accent-glow);font-size:14px;margin-top:12px">${genre}</div>`;
+    let currentType = '';
+    for (const s of sources) {
+      if (s.type !== currentType) {
+        currentType = s.type;
+        sourcesHtml += `<div class="source-type-header" style="color:var(${typeColors[s.type] || '--text-dim'});font-size:11px;margin-top:4px">${s.type.toUpperCase()}</div>`;
+      }
+      const statusDot = s.tracks > 0
+        ? '<span style="color:var(--green)">&#9679;</span>'
+        : '<span style="color:var(--gold)">&#9679;</span>';
+      const statusText = s.tracks > 0 ? `${s.tracks} tracks` : 'no tracks yet';
+      sourcesHtml += `
+        <div class="source-row">
+          <span class="source-status">${statusDot}</span>
+          <span class="source-name">${s.name}</span>
+          <span class="source-count">${statusText}</span>
+        </div>
+      `;
     }
-    const statusDot = s.configured
-      ? (s.tracks > 0 ? '<span style="color:var(--green)">&#9679;</span>' : '<span style="color:var(--gold)">&#9679;</span>')
-      : '<span style="color:var(--red)">&#9679;</span>';
-    const statusText = !s.configured ? 'not configured' : (s.tracks > 0 ? `${s.tracks} tracks` : 'no tracks yet');
-    sourcesHtml += `
-      <div class="source-row">
-        <span class="source-status">${statusDot}</span>
-        <span class="source-name">${s.name}</span>
-        <span class="source-detail">${s.detail}</span>
-        <span class="source-count">${statusText}</span>
-      </div>
-    `;
   }
   sourcesHtml += '</div>';
 

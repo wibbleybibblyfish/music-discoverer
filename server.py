@@ -397,7 +397,7 @@ def build_sources_info():
 
 # Background refresh
 _refresh_lock = threading.Lock()
-_refresh_status = {"running": False, "last_result": None, "last_time": None}
+_refresh_status = {"running": False, "last_result": None, "last_time": None, "progress": ""}
 
 
 def do_refresh():
@@ -409,9 +409,12 @@ def do_refresh():
 
     try:
         from sources import fetch_all
-        result = fetch_all()
+        def on_progress(msg):
+            _refresh_status["progress"] = msg
+        result = fetch_all(on_progress=on_progress)
         _refresh_status["last_result"] = result
         _refresh_status["last_time"] = __import__("datetime").datetime.now().isoformat()
+        _refresh_status["progress"] = ""
         return result
     finally:
         _refresh_status["running"] = False
